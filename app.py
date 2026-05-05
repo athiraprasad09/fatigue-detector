@@ -13,31 +13,45 @@ def analyze():
         data = request.get_json()
         intervals = data.get('intervals', [])
         backspaces = data.get('backspaces', 0)
+        text_content = data.get('text', "").lower()
         
-        if len(intervals) < 10:
-            return jsonify({"status": "Keep typing...", "suggestion": "Need more data."})
+        # Code Detection: Keywords that signal professional work
+        code_keywords = ['const', 'def', 'import', 'function', 'return', 'if', 'else', '{', '}', '=>', 'print']
+        is_code = any(keyword in text_content for keyword in code_keywords)
+        
+        if not is_code and len(text_content) > 15:
+            return jsonify({
+                "status": "INPUT ERROR", 
+                "suggestion": "Analysis invalid. Please input computer code (Python, JS, C++, etc.) to measure engineering flow."
+            })
+
+        if len(intervals) < 12:
+            return jsonify({"status": "COLLECTING DATA", "suggestion": "Continue typing code to calibrate sensors..."})
 
         avg_speed = statistics.mean(intervals)
-        
-        # 1. Stress Detection (High Backspaces/Corrections)
-        if backspaces > (len(intervals) * 0.3):
-            status = "Highly Stressed"
-            suggestion = "Try the 4-7-8 Breathing Technique: Inhale for 4s, hold for 7s, exhale for 8s."
-        
-        # 2. Fatigue Detection (Slow typing > 300ms per key)
-        elif avg_speed > 300:
-            status = "Tired / Fatigued"
-            suggestion = "20-20-20 Rule: Every 20 mins, look at something 20 feet away for 20 seconds."
-            
-        # 3. Energetic (Fast typing < 150ms per key)
+        variation = statistics.stdev(intervals) # Jitter detection
+
+        # Logic for Fatigue Levels
+        if backspaces > (len(intervals) * 0.25): # High error rate
+            status = "CRITICAL STRESS"
+            suggestion = "System Overload. Try Box Breathing (4s inhale, 4s hold, 4s exhale) immediately."
+        elif avg_speed > 350 or variation > 150: # Slow or jittery typing
+            status = "COGNITIVE FATIGUE"
+            suggestion = "Focus is drifting. Apply the 20-20-20 rule: look 20ft away for 20s."
+        elif avg_speed < 180: # Fast, consistent typing
+            status = "OPTIMAL FLOW"
+            suggestion = "Peak performance detected. Stay hydrated and maintain this rhythm."
         else:
-            status = "Energetic / In Flow"
-            suggestion = "You're in the zone! Keep going, but remember to hydrate."
+            status = "STABLE / NORMAL"
+            suggestion = "Steady progress. Consider a short stretch in 15 minutes."
 
         return jsonify({
-            "fatigue_score": int(avg_speed / 10),
+            "fatigue_score": int((variation / avg_speed) * 100) if avg_speed > 0 else 0,
             "status": status,
             "suggestion": suggestion
         })
-    except Exception as e:
-        return jsonify({"error": "Internal Server Error"}), 500
+    except Exception:
+        return jsonify({"error": "Internal Sensor Error"}), 500
+
+if __name__ == '__main__':
+    app.run(debug=False)
