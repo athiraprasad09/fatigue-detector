@@ -2,54 +2,89 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Engineer Fatigue Detector</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cognitive Fatigue Detector</title>
     <style>
-        body { font-family: 'Consolas', monospace; background-color: #1e1e1e; color: #d4d4d4; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        .container { background: #252526; padding: 2rem; border-radius: 8px; border: 1px solid #333; width: 90%; max-width: 500px; text-align: center; }
-        h1 { color: #569cd6; font-size: 1.5rem; }
-        textarea { width: 100%; height: 150px; background: #1e1e1e; color: #9cdcfe; border: 1px solid #3e3e42; padding: 12px; border-radius: 4px; font-family: 'Consolas', monospace; box-sizing: border-box; }
-        button { background-color: #0e639c; color: white; border: none; padding: 10px 20px; border-radius: 2px; cursor: pointer; margin-top: 1rem; width: 100%; }
-        button:hover { background-color: #1177bb; }
-        #result { margin-top: 1.5rem; font-size: 1.1rem; }
-        .score-val { color: #ce9178; font-weight: bold; }
+        :root { --purple: #6c5ce7; --bg: #7f7fd5; --light-purple: #9191e9; }
+        body { font-family: 'Inter', sans-serif; background: linear-gradient(135deg, var(--bg), #86a8e7, #91eae4); height: 100vh; margin: 0; display: flex; justify-content: center; align-items: center; }
+        .card { background: white; padding: 2.5rem; border-radius: 24px; box-shadow: 0 20px 40px rgba(0,0,0,0.1); width: 90%; max-width: 650px; }
+        .header { display: flex; align-items: center; gap: 10px; margin-bottom: 5px; }
+        h1 { margin: 0; font-size: 2rem; color: #2d3436; }
+        .sub-status { color: #00b894; font-size: 0.9rem; margin-bottom: 20px; display: flex; align-items: center; gap: 5px; }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 25px; }
+        .stat-box { background: #f8f9fc; padding: 15px; border-radius: 12px; border: 1px solid #edf2f7; text-align: center; }
+        .stat-val { display: block; font-size: 1.2rem; font-weight: bold; color: var(--purple); }
+        .stat-label { font-size: 0.7rem; text-transform: uppercase; color: #a0aec0; letter-spacing: 1px; }
+        textarea { width: 100%; height: 180px; border: 2px solid #edf2f7; border-radius: 15px; padding: 15px; font-size: 1rem; resize: none; box-sizing: border-box; transition: 0.3s; }
+        textarea:focus { outline: none; border-color: var(--purple); box-shadow: 0 0 0 4px rgba(108, 92, 231, 0.1); }
+        .btn { background: linear-gradient(90deg, #6c5ce7, #a29bfe); color: white; border: none; padding: 15px; border-radius: 12px; width: 100%; font-size: 1rem; font-weight: bold; cursor: pointer; margin-top: 20px; transition: 0.3s; }
+        .btn:hover { filter: brightness(1.1); transform: translateY(-2px); }
+        #result { margin-top: 20px; text-align: center; font-weight: bold; padding: 10px; border-radius: 8px; }
     </style>
 </head>
 <body>
-    <div class="container">
-        <h1>// Fatigue_Detector.exe</h1>
-        <p>Type a code snippet or thoughts to check your flow state.</p>
-        <textarea id="typingArea" placeholder="const developerStatus = 'exhausted'; ..."></textarea>
-        <button onclick="analyzeFatigue()">Run Analysis</button>
+    <div class="card">
+        <div class="header">
+            <span>🧠</span><h1>Cognitive Fatigue Detector</h1>
+        </div>
+        <div class="sub-status">● Real-time typing pattern analysis</div>
+        
+        <div class="stats-grid">
+            <div class="stat-box"><span class="stat-val" id="keystrokes">0</span><span class="stat-label">Keystrokes</span></div>
+            <div class="stat-box"><span class="stat-val" id="avg-speed">-</span><span class="stat-label">Avg Speed (ms)</span></div>
+            <div class="stat-box"><span class="stat-val" id="timer">0s</span><span class="stat-label">Session Time</span></div>
+        </div>
+
+        <textarea id="typingArea" placeholder="Start typing your code here... The system will monitor your typing patterns to detect cognitive fatigue."></textarea>
+        
+        <button class="btn" onclick="analyzeFatigue()">🔍 Analyze Fatigue Level</button>
         <div id="result"></div>
     </div>
 
     <script>
         let lastKeyTime;
         let intervals = [];
-        const area = document.getElementById('typingArea');
+        let startTime = Date.now();
+        let keystrokeCount = 0;
 
-        area.addEventListener('keydown', () => {
+        // Timer function
+        setInterval(() => {
+            const seconds = Math.floor((Date.now() - startTime) / 1000);
+            document.getElementById('timer').innerText = seconds + "s";
+        }, 1000);
+
+        const area = document.getElementById('typingArea');
+        area.addEventListener('keydown', (e) => {
             const now = Date.now();
-            if (lastKeyTime) intervals.push(now - lastKeyTime);
+            keystrokeCount++;
+            document.getElementById('keystrokes').innerText = keystrokeCount;
+
+            if (lastKeyTime) {
+                const interval = now - lastKeyTime;
+                intervals.push(interval);
+                const avg = Math.round(intervals.reduce((a, b) => a + b) / intervals.length);
+                document.getElementById('avg-speed').innerText = avg;
+            }
             lastKeyTime = now;
         });
 
         async function analyzeFatigue() {
             if (intervals.length < 10) {
-                document.getElementById('result').innerText = "Insufficient input for analysis.";
+                document.getElementById('result').innerText = "Need more typing data (at least 10 keystrokes).";
                 return;
             }
 
-            const response = await fetch('/analyze', {
+            const res = await fetch('/analyze', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ intervals: intervals })
             });
+            const data = await res.json();
             
-            const data = await response.json();
-            // This line specifically fixes the 'undefined' error
-            document.getElementById('result').innerHTML = 
-                `System Report: <span class="score-val">${data.fatigue_score}%</span><br>Status: ${data.status}`;
+            const resDiv = document.getElementById('result');
+            resDiv.innerHTML = `Fatigue Score: ${data.fatigue_score}%<br>Status: ${data.status}`;
+            resDiv.style.background = data.fatigue_score > 50 ? "#fff5f5" : "#f0fff4";
+            resDiv.style.color = data.fatigue_score > 50 ? "#e53e3e" : "#38a169";
         }
     </script>
 </body>
