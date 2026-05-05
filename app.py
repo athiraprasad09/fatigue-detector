@@ -1,9 +1,7 @@
 from flask import Flask, render_template, request, jsonify
-from flask_cors import CORS
-import numpy as np
+import statistics
 
 app = Flask(__name__)
-CORS(app)
 
 @app.route('/')
 def index():
@@ -11,32 +9,37 @@ def index():
 
 @app.route('/analyze', methods=['POST'])
 def analyze():
-    data = request.json
-    intervals = data.get('intervals', [])
-    
-    if len(intervals) < 5:
-        return jsonify({"status": "error", "message": "Need more data"})
+    try:
+        data = request.get_json()
+        intervals = data.get('intervals', [])
+        
+        if len(intervals) < 10:
+            return jsonify({"fatigue_score": 0, "status": "Need more data"})
 
-    # DATA SCIENCE LOGIC
-    # We use Coefficient of Variation (CV) = Standard Deviation / Mean
-    # Higher CV indicates irregular typing rhythm, a strong sign of fatigue.
-    mean_speed = np.mean(intervals)
-    std_dev = np.std(intervals)
-    
-    # Calculate a fatigue percentage based on rhythm variance
-    # A standard rhythm usually has a CV under 0.2 (20%). 
-    # Anything above 0.35 (35%) is heavily fatigued.
-    cv = std_dev / mean_speed
-    fatigue_score = min(100, round(cv * 200, 1)) 
-    
-    is_fatigued = cv > 0.30
+        # Logic for Software Engineer Fatigue:
+        # We look at 'Consistency'. Tired engineers have 'jittery' typing.
+        avg_speed = statistics.mean(intervals)
+        variation = statistics.stdev(intervals)
+        
+        # Calculate a score out of 100
+        # A high variation (jitter) + slow speed = High Fatigue
+        raw_score = (variation / avg_speed) * 100
+        fatigue_score = min(100, int(raw_score * 2))
 
-    return jsonify({
-        "avg_speed": round(mean_speed, 2),
-        "fatigue_score": fatigue_score,
-        "is_fatigued": bool(is_fatigued),
-        "message": "Fatigue Detected" if is_fatigued else "Focus is Stable"
-    })
+        # Determine professional status
+        if fatigue_score > 75:
+            status = "Burnout Warning: Take a Break"
+        elif fatigue_score > 45:
+            status = "Moderate Fatigue: Consider Coffee"
+        else:
+            status = "Optimal Flow: Focused"
+
+        return jsonify({
+            "fatigue_score": fatigue_score,
+            "status": status
+        })
+    except Exception as e:
+        return jsonify({"error": "Internal Server Error"}), 500
 
 if __name__ == '__main__':
-    app.run(debug=True, port=5000)
+    app.run(debug=False)
