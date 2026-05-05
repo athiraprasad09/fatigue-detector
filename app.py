@@ -12,34 +12,32 @@ def analyze():
     try:
         data = request.get_json()
         intervals = data.get('intervals', [])
+        backspaces = data.get('backspaces', 0)
         
         if len(intervals) < 10:
-            return jsonify({"fatigue_score": 0, "status": "Need more data"})
+            return jsonify({"status": "Keep typing...", "suggestion": "Need more data."})
 
-        # Logic for Software Engineer Fatigue:
-        # We look at 'Consistency'. Tired engineers have 'jittery' typing.
         avg_speed = statistics.mean(intervals)
-        variation = statistics.stdev(intervals)
         
-        # Calculate a score out of 100
-        # A high variation (jitter) + slow speed = High Fatigue
-        raw_score = (variation / avg_speed) * 100
-        fatigue_score = min(100, int(raw_score * 2))
-
-        # Determine professional status
-        if fatigue_score > 75:
-            status = "Burnout Warning: Take a Break"
-        elif fatigue_score > 45:
-            status = "Moderate Fatigue: Consider Coffee"
+        # 1. Stress Detection (High Backspaces/Corrections)
+        if backspaces > (len(intervals) * 0.3):
+            status = "Highly Stressed"
+            suggestion = "Try the 4-7-8 Breathing Technique: Inhale for 4s, hold for 7s, exhale for 8s."
+        
+        # 2. Fatigue Detection (Slow typing > 300ms per key)
+        elif avg_speed > 300:
+            status = "Tired / Fatigued"
+            suggestion = "20-20-20 Rule: Every 20 mins, look at something 20 feet away for 20 seconds."
+            
+        # 3. Energetic (Fast typing < 150ms per key)
         else:
-            status = "Optimal Flow: Focused"
+            status = "Energetic / In Flow"
+            suggestion = "You're in the zone! Keep going, but remember to hydrate."
 
         return jsonify({
-            "fatigue_score": fatigue_score,
-            "status": status
+            "fatigue_score": int(avg_speed / 10),
+            "status": status,
+            "suggestion": suggestion
         })
     except Exception as e:
         return jsonify({"error": "Internal Server Error"}), 500
-
-if __name__ == '__main__':
-    app.run(debug=False)
